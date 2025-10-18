@@ -87,37 +87,10 @@ def run(data, args):
             dict(params=encoder2.bias, weight_decay=args.e_wd)], lr=args.e_lr)
 
     vq_adj = VQ_adj(data.x, data.x.shape[1], 100)
-    if os.path.isfile(args.dataset+'_mask.pt'):
-        print('########## sample already done #############')
-        sens_mask = torch.load(args.dataset+'_mask.pt').to(args.device)
-        weight = torch.load(args.dataset+'_weight.pt').to(args.device)
-    else:
-        t_adj = sparse_mx_to_torch_sparse_tensor(data.adj).cuda()
-        data.adj = data.adj - sp.eye(data.adj.shape[0])
-        # sens_mask = torch.zeros(data.adj.shape)
-        sens_mask = sp.coo_matrix(data.adj.shape, dtype=np.float64).tolil()
-        h = torch.spmm(t_adj,data.x)
-        h1 = torch.zeros(data.x.shape).cuda()
-        print('sample begin')
-        for i in tqdm(range(data.adj.shape[0])):
-            # sens_mask
-            neighbor = torch.tensor(data.adj[i].nonzero()).to(args.device)
-            mask = (data.sens[neighbor[1].long()] != data.sens[i])
-            h_nei_idx = neighbor[1][mask]
-            for j in h_nei_idx:
-                sens_mask[i, j.item()] = 1
-            sens_mask[i, i] = 1
-            # weight
-            x1 = torch.clone(data.x)
-            x1[i][args.sens_idx] = 1-x1[i][args.sens_idx]
-            h1[i] = torch.spmm(t_adj,x1)[i]
-        weight = log_diff(h1,h)
-        print('select done')
-        # sens_mask = to_sparse_tensor(sens_mask).cuda()
-        sens_mask = sparse_mx_to_torch_sparse_tensor(sens_mask.tocoo()).cuda()
-        weight = to_sparse_tensor(weight).cuda()
-        torch.save(sens_mask, args.dataset + '_mask.pt')
-        torch.save(weight, args.dataset + '_weight.pt')
+    
+    print('########## sample already done #############')
+    sens_mask = torch.load(args.dataset+'_mask.pt').to(args.device)
+    weight = torch.load(args.dataset+'_weight.pt').to(args.device)
 
 
     data.adj = data.adj + sp.eye(data.adj.shape[0])
@@ -212,7 +185,7 @@ def run(data, args):
     print('auc_roc:'+res[9])
     print('parity:'+res[10])
     print('equality:'+res[11])
-    with open("24_12_4_{}_{}.csv".format(args.dataset, args.encoder), mode="a", newline="") as file:
+    with open("{}_{}.csv".format(args.dataset, args.encoder), mode="a", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(res)
 
@@ -268,7 +241,7 @@ if __name__ == '__main__':
         args.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         torch.cuda.init()
 
-        with open("24_12_4_{}_{}.csv".format(args.dataset, args.encoder), mode="a", newline="") as file:
+        with open("{}_{}.csv".format(args.dataset, args.encoder), mode="a", newline="") as file:
             writer = csv.writer(file)
             writer.writerow([time.ctime(time.time())])
             writer.writerow(['epochs','c_lr','c_wd','e_lr','e_wd','hidden','**||**','acc', 'f1', 'auc_roc', 'DP', 'EO'])
